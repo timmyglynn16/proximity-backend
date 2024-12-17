@@ -28,14 +28,17 @@ jobs:
           EC2_HOST: ${{ secrets.EC2_HOST }}
         run: |
           ssh -o StrictHostKeyChecking=no $EC2_USER@$EC2_HOST << 'EOF'
-            cd /home/ubuntu/backend-repo
-            echo "Pulling latest code..."
+            echo "Navigating to backend directory..."
+            cd /home/ubuntu/proximity-backend || exit 1
+            
+            echo "Pulling latest code from GitHub..."
             git pull origin main
-
+            
             echo "Rebuilding Docker container..."
             sudo docker stop backend-container || true
             sudo docker rm backend-container || true
             sudo docker build -t proximity-backend .
             sudo docker run -d -p 3000:3000 --name backend-container proximity-backend
+            
             echo "Deployment complete!"
           EOF
