@@ -39,12 +39,10 @@ jobs:
             git pull origin main
             
             echo "Creating/updating .env file..."
-            cat <<EOT > .env
-            AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
-            AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
-            JWT_SECRET=${JWT_SECRET}
-            AWS_REGION=${AWS_REGION}
-            EOT
+            echo "AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}" > .env
+            echo "AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}" >> .env
+            echo "JWT_SECRET=${JWT_SECRET}" >> .env
+            echo "AWS_REGION=${AWS_REGION}" >> .env
             
             echo "Rebuilding Docker container..."
             sudo docker stop backend-container || true
