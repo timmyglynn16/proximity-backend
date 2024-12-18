@@ -16,7 +16,7 @@ const dynamoDbClient = new DynamoDBClient({
   },
 });
 
-const JWT_SECRET = process.env.JWT_SECRET || 'temporary-secret';
+const JWT_SECRET = process.env.JWT_SECRET;
 
 const router = express.Router();
 
