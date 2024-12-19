@@ -25,8 +25,11 @@ jobs:
             echo "ENVIRONMENT=prod" >> $GITHUB_ENV
           elif [[ "${{ github.ref_name }}" == "staging" ]]; then
             echo "ENVIRONMENT=staging" >> $GITHUB_ENV
-          else
+          elif [[ "${{ github.ref_name }}" == "development" ]]; then
             echo "ENVIRONMENT=dev" >> $GITHUB_ENV
+          else
+            echo "Error: Unsupported branch!" >&2
+            exit 1
           fi
           echo "Environment set to $ENVIRONMENT"
 
@@ -39,14 +42,14 @@ jobs:
       # Step 4: Deploy to EC2
       - name: Deploy Backend to EC2
         env:
-          ENVIRONMENT: ${{ env.ENVIRONMENT }}
           AWS_REGION: ${{ secrets.AWS_REGION }}
-          EC2_HOST: ${{ secrets[env.ENVIRONMENT + '_EC2_HOST'] }}
-          EC2_USER: ${{ secrets[env.ENVIRONMENT + '_EC2_USER'] }}
-          AWS_ACCESS_KEY_ID: ${{ secrets[env.ENVIRONMENT + '_ACCESS_KEY_ID'] }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets[env.ENVIRONMENT + '_SECRET_ACCESS_KEY'] }}
-          DYNAMODB_TABLE_NAME: ${{ secrets[env.ENVIRONMENT + '_DYNAMODB_TABLE_NAME'] }}
+          EC2_HOST: ${{ secrets.PROD_EC2_HOST }}
+          EC2_USER: ${{ secrets.PROD_EC2_USER }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.PROD_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.PROD_SECRET_ACCESS_KEY }}
+          DYNAMODB_TABLE_NAME: ${{ secrets.PROD_DYNAMODB_TABLE_NAME }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
+        if: env.ENVIRONMENT == 'prod'
         run: |
           ssh -o StrictHostKeyChecking=no $EC2_USER@$EC2_HOST << EOF
             echo "Navigating to backend directory..."
@@ -75,5 +78,87 @@ jobs:
             sudo docker build -t proximity-backend .
             sudo docker run -d --env-file .env -p 3000:3000 --name backend-container proximity-backend
 
-            echo "Deployment complete for $ENVIRONMENT environment!"
+            echo "Deployment complete for production!"
+          EOF
+
+      - name: Deploy to Staging
+        env:
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          EC2_HOST: ${{ secrets.STAGING_EC2_HOST }}
+          EC2_USER: ${{ secrets.STAGING_EC2_USER }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.STAGING_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.STAGING_SECRET_ACCESS_KEY }}
+          DYNAMODB_TABLE_NAME: ${{ secrets.STAGING_DYNAMODB_TABLE_NAME }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+        if: env.ENVIRONMENT == 'staging'
+        run: |
+          ssh -o StrictHostKeyChecking=no $EC2_USER@$EC2_HOST << EOF
+            echo "Navigating to backend directory..."
+            cd /home/ubuntu/proximity-backend || exit 1
+
+            echo "Pulling latest code from GitHub..."
+            git pull origin ${{ github.ref_name }}
+
+            echo "Exporting environment variables for .env file..."
+            export AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+            export AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+            export JWT_SECRET=${JWT_SECRET}
+            export AWS_REGION=${AWS_REGION}
+            export DYNAMODB_TABLE_NAME=${DYNAMODB_TABLE_NAME}
+
+            echo "Creating/updating .env file..."
+            echo "AWS_ACCESS_KEY_ID=\$AWS_ACCESS_KEY_ID" > .env
+            echo "AWS_SECRET_ACCESS_KEY=\$AWS_SECRET_ACCESS_KEY" >> .env
+            echo "JWT_SECRET=\$JWT_SECRET" >> .env
+            echo "AWS_REGION=\$AWS_REGION" >> .env
+            echo "DYNAMODB_TABLE_NAME=\$DYNAMODB_TABLE_NAME" >> .env
+
+            echo "Rebuilding Docker container..."
+            sudo docker stop backend-container || true
+            sudo docker rm backend-container || true
+            sudo docker build -t proximity-backend .
+            sudo docker run -d --env-file .env -p 3000:3000 --name backend-container proximity-backend
+
+            echo "Deployment complete for staging!"
+          EOF
+
+      - name: Deploy to Development
+        env:
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          EC2_HOST: ${{ secrets.DEV_EC2_HOST }}
+          EC2_USER: ${{ secrets.DEV_EC2_USER }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.DEV_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.DEV_SECRET_ACCESS_KEY }}
+          DYNAMODB_TABLE_NAME: ${{ secrets.DEV_DYNAMODB_TABLE_NAME }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+        if: env.ENVIRONMENT == 'dev'
+        run: |
+          ssh -o StrictHostKeyChecking=no $EC2_USER@$EC2_HOST << EOF
+            echo "Navigating to backend directory..."
+            cd /home/ubuntu/proximity-backend || exit 1
+
+            echo "Pulling latest code from GitHub..."
+            git pull origin ${{ github.ref_name }}
+
+            echo "Exporting environment variables for .env file..."
+            export AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+            export AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+            export JWT_SECRET=${JWT_SECRET}
+            export AWS_REGION=${AWS_REGION}
+            export DYNAMODB_TABLE_NAME=${DYNAMODB_TABLE_NAME}
+
+            echo "Creating/updating .env file..."
+            echo "AWS_ACCESS_KEY_ID=\$AWS_ACCESS_KEY_ID" > .env
+            echo "AWS_SECRET_ACCESS_KEY=\$AWS_SECRET_ACCESS_KEY" >> .env
+            echo "JWT_SECRET=\$JWT_SECRET" >> .env
+            echo "AWS_REGION=\$AWS_REGION" >> .env
+            echo "DYNAMODB_TABLE_NAME=\$DYNAMODB_TABLE_NAME" >> .env
+
+            echo "Rebuilding Docker container..."
+            sudo docker stop backend-container || true
+            sudo docker rm backend-container || true
+            sudo docker build -t proximity-backend .
+            sudo docker run -d --env-file .env -p 3000:3000 --name backend-container proximity-backend
+
+            echo "Deployment complete for development!"
           EOF
