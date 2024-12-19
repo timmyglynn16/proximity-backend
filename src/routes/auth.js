@@ -1,13 +1,27 @@
 const express = require('express');
-const { DynamoDBClient, QueryCommand, PutItemCommand, GetItemCommand } = require('@aws-sdk/client-dynamodb');
+const { DynamoDBClient, QueryCommand, PutItemCommand } = require('@aws-sdk/client-dynamodb');
 const jwt = require('jsonwebtoken');
 const { v4: uuidv4 } = require('uuid');
 const { body, validationResult } = require('express-validator');
 const bcrypt = require('bcryptjs');
-const { verifyAppleToken } = require('../services/appleAuthService'); // Apple Token Verification Service
+const { verifyAppleToken } = require('../services/appleAuthService');
 require('dotenv').config();
 
-// AWS Configuration
+const router = express.Router();
+
+// Dynamically configure AWS DynamoDB settings
+const ENV = process.env.NODE_ENV || 'development';
+
+if (
+  !process.env.AWS_REGION ||
+  !process.env.JWT_SECRET ||
+  !process.env.AWS_ACCESS_KEY_ID ||
+  !process.env.AWS_SECRET_ACCESS_KEY ||
+  !process.env.DYNAMODB_TABLE_NAME
+) {
+  throw new Error(`Missing required environment variables for environment: ${ENV}`);
+}
+
 const dynamoDbClient = new DynamoDBClient({
   region: process.env.AWS_REGION,
   credentials: {
@@ -17,8 +31,7 @@ const dynamoDbClient = new DynamoDBClient({
 });
 
 const JWT_SECRET = process.env.JWT_SECRET;
-
-const router = express.Router();
+const TABLE_NAME = process.env.DYNAMODB_TABLE_NAME;
 
 // Sign-Up Endpoint
 router.post(
@@ -37,20 +50,18 @@ router.post(
     const { email, password, appleIdToken } = req.body;
 
     try {
-      let verifiedEmail;
+      let verifiedEmail = email;
       let userName = null;
 
-      // Apple Sign-Up Flow
+      // Handle Apple Sign-Up
       if (appleIdToken) {
         const { email: appleEmail } = await verifyAppleToken(appleIdToken);
         verifiedEmail = appleEmail;
-      } else {
-        verifiedEmail = email;
       }
 
-      // Check if the user already exists by email
+      // Check if user already exists
       const queryParams = {
-        TableName: 'profiles',
+        TableName: TABLE_NAME,
         KeyConditionExpression: 'email = :email',
         ExpressionAttributeValues: {
           ':email': { S: verifiedEmail },
@@ -58,32 +69,29 @@ router.post(
       };
 
       const existingUser = await dynamoDbClient.send(new QueryCommand(queryParams));
-      if (existingUser.Items.length > 0) {
+      if (existingUser.Items && existingUser.Items.length > 0) {
         return res.status(400).json({ message: 'User already exists' });
       }
 
-      // Generate userIdentifier and timestamp
+      // Create user
       const userIdentifier = uuidv4();
       const timestamp = new Date().toISOString();
-
-      // Hash password if provided (Email/Password sign-up)
       const hashedPassword = await bcrypt.hash(password, 10);
 
-      // Create new user object
       const putParams = {
-        TableName: 'profiles',
+        TableName: TABLE_NAME,
         Item: {
-          email: { S: verifiedEmail }, // Partition Key
-          timestamp: { S: timestamp }, // Sort Key
+          email: { S: verifiedEmail },
+          timestamp: { S: timestamp },
           userIdentifier: { S: userIdentifier },
           createdAt: { S: timestamp },
           name: { S: userName || 'Unknown' },
-          password: { S: hashedPassword }, // Only for email/password sign-ups
+          password: { S: hashedPassword },
         },
       };
       await dynamoDbClient.send(new PutItemCommand(putParams));
 
-      // Generate JWT Token
+      // Generate JWT
       const token = jwt.sign({ userIdentifier }, JWT_SECRET, { expiresIn: '1h' });
 
       res.status(201).json({ token, user: putParams.Item });
@@ -96,62 +104,59 @@ router.post(
 
 // Sign-In Endpoint
 router.post(
-    '/signin',
-    [
-      body('email').isEmail().withMessage('Valid email is required'),
-      body('password').notEmpty().withMessage('Password is required'),
-    ],
-    async (req, res) => {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        return res.status(400).json({ errors: errors.array() });
-      }
-  
-      const { email, password } = req.body;
-  
-      try {
-        // Query user by email
-        const queryParams = {
-          TableName: 'profiles',
-          KeyConditionExpression: 'email = :email', // Query by partition key
-          ExpressionAttributeValues: {
-            ':email': { S: email },
-          },
-          Limit: 1, // Assuming email is unique, we only need the first match
-        };
-  
-        const userData = await dynamoDbClient.send(new QueryCommand(queryParams));
-        if (!userData.Items || userData.Items.length === 0) {
-          return res.status(400).json({ message: 'Invalid email or password' });
-        }
-  
-        // Extract user data (use the first result)
-        const user = userData.Items[0];
-        const hashedPassword = user.password.S;
-  
-        // Validate password
-        const isPasswordValid = await bcrypt.compare(password, hashedPassword);
-        if (!isPasswordValid) {
-          return res.status(400).json({ message: 'Invalid email or password' });
-        }
-  
-        // Generate JWT Token
-        const token = jwt.sign({ userIdentifier: user.userIdentifier.S }, JWT_SECRET, { expiresIn: '1h' });
-  
-        res.status(200).json({
-          token,
-          user: {
-            email: user.email.S,
-            userIdentifier: user.userIdentifier.S,
-            name: user.name.S || 'Unknown',
-          },
-        });
-      } catch (error) {
-        console.error('Error during sign-in:', error);
-        res.status(500).json({ message: 'Internal server error' });
-      }
+  '/signin',
+  [
+    body('email').isEmail().withMessage('Valid email is required'),
+    body('password').notEmpty().withMessage('Password is required'),
+  ],
+  async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
     }
-  );
-  
+
+    const { email, password } = req.body;
+
+    try {
+      // Fetch user by email
+      const queryParams = {
+        TableName: TABLE_NAME,
+        KeyConditionExpression: 'email = :email',
+        ExpressionAttributeValues: {
+          ':email': { S: email },
+        },
+      };
+
+      const userData = await dynamoDbClient.send(new QueryCommand(queryParams));
+      if (!userData.Items || userData.Items.length === 0) {
+        return res.status(400).json({ message: 'Invalid email or password' });
+      }
+
+      const user = userData.Items[0];
+      const hashedPassword = user.password.S;
+
+      // Validate password
+      const isPasswordValid = await bcrypt.compare(password, hashedPassword);
+      if (!isPasswordValid) {
+        return res.status(400).json({ message: 'Invalid email or password' });
+      }
+
+      // Generate JWT
+      const token = jwt.sign({ userIdentifier: user.userIdentifier.S }, JWT_SECRET, { expiresIn: '1h' });
+
+      res.status(200).json({
+        token,
+        user: {
+          email: user.email.S,
+          userIdentifier: user.userIdentifier.S,
+          name: user.name.S || 'Unknown',
+        },
+      });
+    } catch (err) {
+      console.error('Error during sign-in:', err);
+      res.status(500).json({ message: 'Internal server error' });
+    }
+  }
+);
 
 module.exports = router;
