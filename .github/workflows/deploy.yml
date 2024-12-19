@@ -47,6 +47,7 @@ jobs:
               exit 1
               ;;
           esac
+          echo "BRANCH_NAME=${{ github.ref_name }}" >> $GITHUB_ENV
 
       # Step 3: Setup SSH Key
       - name: Setup SSH Key
@@ -62,8 +63,8 @@ jobs:
             cd /home/ubuntu/proximity-backend || exit 1
 
             echo "Pulling latest code from GitHub..."
-            git fetch origin ${{ github.ref_name }}
-            git reset --hard origin/${{ github.ref_name }}
+            git fetch origin $BRANCH_NAME
+            git reset --hard origin/$BRANCH_NAME
 
             echo "Creating .env file with environment variables..."
             echo "AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID" > .env
@@ -75,8 +76,8 @@ jobs:
             echo "Rebuilding Docker container..."
             sudo docker stop backend-container || true
             sudo docker rm backend-container || true
-            sudo docker build -t proximity-backend .
-            sudo docker run -d --env-file .env -p 3000:3000 --name backend-container proximity-backend
+            sudo docker build -t proximity-backend . || (echo "Docker build failed!" && exit 1)
+            sudo docker run -d --env-file .env -p 3000:3000 --name backend-container proximity-backend || (echo "Docker run failed!" && exit 1)
 
             echo "Deployment complete!"
           EOF
