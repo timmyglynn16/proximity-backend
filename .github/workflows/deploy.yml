@@ -35,19 +35,20 @@ jobs:
             git reset --hard origin/${{ github.ref_name }}
 
             echo "Creating .env file with environment variables..."
-            if [ "${{ github.ref_name }}" = "main" ]; then
+            BRANCH="${{ github.ref_name }}"
+            if [ "$BRANCH" = "main" ]; then
               echo "AWS_ACCESS_KEY_ID=${{ secrets.PROD_ACCESS_KEY_ID }}" > .env
               echo "AWS_SECRET_ACCESS_KEY=${{ secrets.PROD_SECRET_ACCESS_KEY }}" >> .env
               echo "JWT_SECRET=${{ secrets.JWT_SECRET }}" >> .env
               echo "AWS_REGION=${{ secrets.AWS_REGION }}" >> .env
               echo "DYNAMODB_TABLE_NAME=${{ secrets.PROD_DYNAMODB_TABLE_NAME }}" >> .env
-            elif [ "${{ github.ref_name }}" = "staging" ]; then
+            elif [ "$BRANCH" = "staging" ]; then
               echo "AWS_ACCESS_KEY_ID=${{ secrets.STAGING_ACCESS_KEY_ID }}" > .env
               echo "AWS_SECRET_ACCESS_KEY=${{ secrets.STAGING_SECRET_ACCESS_KEY }}" >> .env
               echo "JWT_SECRET=${{ secrets.JWT_SECRET }}" >> .env
               echo "AWS_REGION=${{ secrets.AWS_REGION }}" >> .env
               echo "DYNAMODB_TABLE_NAME=${{ secrets.STAGING_DYNAMODB_TABLE_NAME }}" >> .env
-            elif [ "${{ github.ref_name }}" = "development" ]; then
+            elif [ "$BRANCH" = "development" ]; then
               echo "AWS_ACCESS_KEY_ID=${{ secrets.DEV_ACCESS_KEY_ID }}" > .env
               echo "AWS_SECRET_ACCESS_KEY=${{ secrets.DEV_SECRET_ACCESS_KEY }}" >> .env
               echo "JWT_SECRET=${{ secrets.JWT_SECRET }}" >> .env
