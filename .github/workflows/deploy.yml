@@ -19,45 +19,42 @@ jobs:
 
       # Step 2: Set Environment Variables Based on Branch
       - name: Set Environment Variables
-        id: set-env
         run: |
-          if [[ "${{ github.ref_name }}" == "main" ]]; then
-            echo "EC2_USER=${{ secrets.PROD_EC2_USER }}" >> $GITHUB_ENV
-            echo "EC2_HOST=${{ secrets.PROD_EC2_HOST }}" >> $GITHUB_ENV
-            echo "AWS_ACCESS_KEY_ID=${{ secrets.PROD_ACCESS_KEY_ID }}" >> $GITHUB_ENV
-            echo "AWS_SECRET_ACCESS_KEY=${{ secrets.PROD_SECRET_ACCESS_KEY }}" >> $GITHUB_ENV
-            echo "DYNAMODB_TABLE_NAME=${{ secrets.PROD_DYNAMODB_TABLE_NAME }}" >> $GITHUB_ENV
-          elif [[ "${{ github.ref_name }}" == "staging" ]]; then
-            echo "EC2_USER=${{ secrets.STAGING_EC2_USER }}" >> $GITHUB_ENV
-            echo "EC2_HOST=${{ secrets.STAGING_EC2_HOST }}" >> $GITHUB_ENV
-            echo "AWS_ACCESS_KEY_ID=${{ secrets.STAGING_ACCESS_KEY_ID }}" >> $GITHUB_ENV
-            echo "AWS_SECRET_ACCESS_KEY=${{ secrets.STAGING_SECRET_ACCESS_KEY }}" >> $GITHUB_ENV
-            echo "DYNAMODB_TABLE_NAME=${{ secrets.STAGING_DYNAMODB_TABLE_NAME }}" >> $GITHUB_ENV
-          elif [[ "${{ github.ref_name }}" == "development" ]]; then
-            echo "EC2_USER=${{ secrets.DEV_EC2_USER }}" >> $GITHUB_ENV
-            echo "EC2_HOST=${{ secrets.DEV_EC2_HOST }}" >> $GITHUB_ENV
-            echo "AWS_ACCESS_KEY_ID=${{ secrets.DEV_ACCESS_KEY_ID }}" >> $GITHUB_ENV
-            echo "AWS_SECRET_ACCESS_KEY=${{ secrets.DEV_SECRET_ACCESS_KEY }}" >> $GITHUB_ENV
-            echo "DYNAMODB_TABLE_NAME=${{ secrets.DEV_DYNAMODB_TABLE_NAME }}" >> $GITHUB_ENV
-          else
-            echo "Unsupported branch!" >&2
-            exit 1
-          fi
+          case "${{ github.ref_name }}" in
+            "main")
+              echo "EC2_USER=${{ secrets.PROD_EC2_USER }}" >> $GITHUB_ENV
+              echo "EC2_HOST=${{ secrets.PROD_EC2_HOST }}" >> $GITHUB_ENV
+              echo "AWS_ACCESS_KEY_ID=${{ secrets.PROD_ACCESS_KEY_ID }}" >> $GITHUB_ENV
+              echo "AWS_SECRET_ACCESS_KEY=${{ secrets.PROD_SECRET_ACCESS_KEY }}" >> $GITHUB_ENV
+              echo "DYNAMODB_TABLE_NAME=${{ secrets.PROD_DYNAMODB_TABLE_NAME }}" >> $GITHUB_ENV
+              ;;
+            "staging")
+              echo "EC2_USER=${{ secrets.STAGING_EC2_USER }}" >> $GITHUB_ENV
+              echo "EC2_HOST=${{ secrets.STAGING_EC2_HOST }}" >> $GITHUB_ENV
+              echo "AWS_ACCESS_KEY_ID=${{ secrets.STAGING_ACCESS_KEY_ID }}" >> $GITHUB_ENV
+              echo "AWS_SECRET_ACCESS_KEY=${{ secrets.STAGING_SECRET_ACCESS_KEY }}" >> $GITHUB_ENV
+              echo "DYNAMODB_TABLE_NAME=${{ secrets.STAGING_DYNAMODB_TABLE_NAME }}" >> $GITHUB_ENV
+              ;;
+            "development")
+              echo "EC2_USER=${{ secrets.DEV_EC2_USER }}" >> $GITHUB_ENV
+              echo "EC2_HOST=${{ secrets.DEV_EC2_HOST }}" >> $GITHUB_ENV
+              echo "AWS_ACCESS_KEY_ID=${{ secrets.DEV_ACCESS_KEY_ID }}" >> $GITHUB_ENV
+              echo "AWS_SECRET_ACCESS_KEY=${{ secrets.DEV_SECRET_ACCESS_KEY }}" >> $GITHUB_ENV
+              echo "DYNAMODB_TABLE_NAME=${{ secrets.DEV_DYNAMODB_TABLE_NAME }}" >> $GITHUB_ENV
+              ;;
+            *)
+              echo "Unsupported branch!" >&2
+              exit 1
+              ;;
+          esac
 
-      # Step 3: Debug Environment Variables
-      - name: Debug Environment Variables
-        run: |
-          echo "EC2_USER=$EC2_USER"
-          echo "EC2_HOST=$EC2_HOST"
-          echo "DYNAMODB_TABLE_NAME=$DYNAMODB_TABLE_NAME"
-
-      # Step 4: Setup SSH Key
+      # Step 3: Setup SSH Key
       - name: Setup SSH Key
         uses: webfactory/ssh-agent@v0.5.4
         with:
           ssh-private-key: ${{ secrets.EC2_SSH_KEY }}
 
-      # Step 5: Deploy to EC2
+      # Step 4: Deploy to EC2
       - name: Deploy Backend to EC2
         run: |
           ssh -o StrictHostKeyChecking=no $EC2_USER@$EC2_HOST << 'EOF'
@@ -68,7 +65,7 @@ jobs:
             git fetch origin ${{ github.ref_name }}
             git reset --hard origin/${{ github.ref_name }}
 
-            echo "Exporting environment variables for .env file..."
+            echo "Creating .env file with environment variables..."
             echo "AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID" > .env
             echo "AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY" >> .env
             echo "JWT_SECRET=${{ secrets.JWT_SECRET }}" >> .env
