@@ -22,21 +22,18 @@ jobs:
         id: set-env
         run: |
           if [[ "${{ github.ref_name }}" == "main" ]]; then
-            echo "ENVIRONMENT=PROD" >> $GITHUB_ENV
             echo "EC2_USER=${{ secrets.PROD_EC2_USER }}" >> $GITHUB_ENV
             echo "EC2_HOST=${{ secrets.PROD_EC2_HOST }}" >> $GITHUB_ENV
             echo "AWS_ACCESS_KEY_ID=${{ secrets.PROD_ACCESS_KEY_ID }}" >> $GITHUB_ENV
             echo "AWS_SECRET_ACCESS_KEY=${{ secrets.PROD_SECRET_ACCESS_KEY }}" >> $GITHUB_ENV
             echo "DYNAMODB_TABLE_NAME=${{ secrets.PROD_DYNAMODB_TABLE_NAME }}" >> $GITHUB_ENV
           elif [[ "${{ github.ref_name }}" == "staging" ]]; then
-            echo "ENVIRONMENT=STAGING" >> $GITHUB_ENV
             echo "EC2_USER=${{ secrets.STAGING_EC2_USER }}" >> $GITHUB_ENV
             echo "EC2_HOST=${{ secrets.STAGING_EC2_HOST }}" >> $GITHUB_ENV
             echo "AWS_ACCESS_KEY_ID=${{ secrets.STAGING_ACCESS_KEY_ID }}" >> $GITHUB_ENV
             echo "AWS_SECRET_ACCESS_KEY=${{ secrets.STAGING_SECRET_ACCESS_KEY }}" >> $GITHUB_ENV
             echo "DYNAMODB_TABLE_NAME=${{ secrets.STAGING_DYNAMODB_TABLE_NAME }}" >> $GITHUB_ENV
           elif [[ "${{ github.ref_name }}" == "development" ]]; then
-            echo "ENVIRONMENT=DEV" >> $GITHUB_ENV
             echo "EC2_USER=${{ secrets.DEV_EC2_USER }}" >> $GITHUB_ENV
             echo "EC2_HOST=${{ secrets.DEV_EC2_HOST }}" >> $GITHUB_ENV
             echo "AWS_ACCESS_KEY_ID=${{ secrets.DEV_ACCESS_KEY_ID }}" >> $GITHUB_ENV
@@ -50,7 +47,6 @@ jobs:
       # Step 3: Debug Environment Variables
       - name: Debug Environment Variables
         run: |
-          echo "Environment: $ENVIRONMENT"
           echo "EC2_USER=$EC2_USER"
           echo "EC2_HOST=$EC2_HOST"
           echo "DYNAMODB_TABLE_NAME=$DYNAMODB_TABLE_NAME"
