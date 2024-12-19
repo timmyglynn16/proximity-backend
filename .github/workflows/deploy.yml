@@ -17,21 +17,35 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v3
 
-      # Step 2: Determine Environment
+      # Step 2: Determine Environment Variables
       - name: Set Environment Variables
         id: set-env
         run: |
           if [[ "${{ github.ref_name }}" == "main" ]]; then
             echo "ENVIRONMENT=prod" >> $GITHUB_ENV
+            echo "EC2_HOST=${{ secrets.PROD_EC2_HOST }}" >> $GITHUB_ENV
+            echo "EC2_USER=${{ secrets.PROD_EC2_USER }}" >> $GITHUB_ENV
+            echo "AWS_ACCESS_KEY_ID=${{ secrets.PROD_ACCESS_KEY_ID }}" >> $GITHUB_ENV
+            echo "AWS_SECRET_ACCESS_KEY=${{ secrets.PROD_SECRET_ACCESS_KEY }}" >> $GITHUB_ENV
+            echo "DYNAMODB_TABLE_NAME=${{ secrets.PROD_DYNAMODB_TABLE_NAME }}" >> $GITHUB_ENV
           elif [[ "${{ github.ref_name }}" == "staging" ]]; then
             echo "ENVIRONMENT=staging" >> $GITHUB_ENV
+            echo "EC2_HOST=${{ secrets.STAGING_EC2_HOST }}" >> $GITHUB_ENV
+            echo "EC2_USER=${{ secrets.STAGING_EC2_USER }}" >> $GITHUB_ENV
+            echo "AWS_ACCESS_KEY_ID=${{ secrets.STAGING_ACCESS_KEY_ID }}" >> $GITHUB_ENV
+            echo "AWS_SECRET_ACCESS_KEY=${{ secrets.STAGING_SECRET_ACCESS_KEY }}" >> $GITHUB_ENV
+            echo "DYNAMODB_TABLE_NAME=${{ secrets.STAGING_DYNAMODB_TABLE_NAME }}" >> $GITHUB_ENV
           elif [[ "${{ github.ref_name }}" == "development" ]]; then
             echo "ENVIRONMENT=dev" >> $GITHUB_ENV
+            echo "EC2_HOST=${{ secrets.DEV_EC2_HOST }}" >> $GITHUB_ENV
+            echo "EC2_USER=${{ secrets.DEV_EC2_USER }}" >> $GITHUB_ENV
+            echo "AWS_ACCESS_KEY_ID=${{ secrets.DEV_ACCESS_KEY_ID }}" >> $GITHUB_ENV
+            echo "AWS_SECRET_ACCESS_KEY=${{ secrets.DEV_SECRET_ACCESS_KEY }}" >> $GITHUB_ENV
+            echo "DYNAMODB_TABLE_NAME=${{ secrets.DEV_DYNAMODB_TABLE_NAME }}" >> $GITHUB_ENV
           else
             echo "Error: Unsupported branch!" >&2
             exit 1
           fi
-          echo "Environment set to $ENVIRONMENT"
 
       # Step 3: Setup SSH Key
       - name: Setup SSH Key
@@ -43,12 +57,6 @@ jobs:
       - name: Deploy Backend to EC2
         env:
           AWS_REGION: ${{ secrets.AWS_REGION }}
-          EC2_HOST: ${{ secrets[env.ENVIRONMENT + '_EC2_HOST'] }}
-          EC2_USER: ${{ secrets[env.ENVIRONMENT + '_EC2_USER'] }}
-          AWS_ACCESS_KEY_ID: ${{ secrets[env.ENVIRONMENT + '_ACCESS_KEY_ID'] }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets[env.ENVIRONMENT + '_SECRET_ACCESS_KEY'] }}
-          DYNAMODB_TABLE_NAME: ${{ secrets[env.ENVIRONMENT + '_DYNAMODB_TABLE_NAME'] }}
-          JWT_SECRET: ${{ secrets.JWT_SECRET }}
         run: |
           ssh -o StrictHostKeyChecking=no $EC2_USER@$EC2_HOST << 'EOF'
             set -e
@@ -59,11 +67,11 @@ jobs:
             git pull origin ${{ github.ref_name }}
 
             echo "Exporting environment variables for .env file..."
-            export AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
-            export AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
-            export JWT_SECRET=${JWT_SECRET}
-            export AWS_REGION=${AWS_REGION}
-            export DYNAMODB_TABLE_NAME=${DYNAMODB_TABLE_NAME}
+            export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
+            export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
+            export JWT_SECRET=${{ secrets.JWT_SECRET }}
+            export AWS_REGION=${{ secrets.AWS_REGION }}
+            export DYNAMODB_TABLE_NAME=$DYNAMODB_TABLE_NAME
 
             echo "Creating/updating .env file..."
             echo "AWS_ACCESS_KEY_ID=\$AWS_ACCESS_KEY_ID" > .env
