@@ -8,31 +8,44 @@ const jwt = require('jsonwebtoken');
 const { v4: uuidv4 } = require('uuid');
 const { body, validationResult } = require('express-validator');
 const bcrypt = require('bcryptjs');
-const { verifyAppleToken } = require('../services/appleAuthService');
+const { verifyAppleToken } = require('../services/appleAuthService'); // Apple Token Verification Service
 require('dotenv').config();
 
 const router = express.Router();
 
 // Dynamically set environment variables based on the environment
 const ENV = process.env.NODE_ENV || 'development';
-const TABLE_NAME = process.env[`${ENV.toUpperCase()}_DYNAMODB_TABLE_NAME`];
-const AWS_ACCESS_KEY_ID = process.env[`${ENV.toUpperCase()}_ACCESS_KEY_ID`];
-const AWS_SECRET_ACCESS_KEY = process.env[`${ENV.toUpperCase()}_SECRET_ACCESS_KEY`];
-const AWS_REGION = process.env.AWS_REGION;
-const JWT_SECRET = process.env.JWT_SECRET;
+const TABLE_NAME =
+  ENV === 'production'
+    ? process.env.PROD_DYNAMODB_TABLE_NAME
+    : ENV === 'staging'
+    ? process.env.STAGING_DYNAMODB_TABLE_NAME
+    : process.env.DEV_DYNAMODB_TABLE_NAME;
 
-if (!TABLE_NAME || !AWS_ACCESS_KEY_ID || !AWS_SECRET_ACCESS_KEY || !AWS_REGION || !JWT_SECRET) {
-  throw new Error(`Missing required environment variables for environment: ${ENV}`);
-}
+const AWS_ACCESS_KEY_ID =
+  ENV === 'production'
+    ? process.env.PROD_ACCESS_KEY_ID
+    : ENV === 'staging'
+    ? process.env.STAGING_ACCESS_KEY_ID
+    : process.env.DEV_ACCESS_KEY_ID;
+
+const AWS_SECRET_ACCESS_KEY =
+  ENV === 'production'
+    ? process.env.PROD_SECRET_ACCESS_KEY
+    : ENV === 'staging'
+    ? process.env.STAGING_SECRET_ACCESS_KEY
+    : process.env.DEV_SECRET_ACCESS_KEY;
 
 // AWS Configuration
 const dynamoDbClient = new DynamoDBClient({
-  region: AWS_REGION,
+  region: process.env.AWS_REGION,
   credentials: {
     accessKeyId: AWS_ACCESS_KEY_ID,
     secretAccessKey: AWS_SECRET_ACCESS_KEY,
   },
 });
+
+const JWT_SECRET = process.env.JWT_SECRET;
 
 // Sign-Up Endpoint
 router.post(
